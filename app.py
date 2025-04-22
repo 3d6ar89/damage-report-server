@@ -10,10 +10,8 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
-import socket
-
-# ----------------- LOCAL MODE DETECTION -----------------
-LOCAL_MODE = socket.gethostname() == "edgar"  # Your PC name
+import unicodedata
+import re
 
 # ----------------- FLASK SETUP -----------------
 app = Flask(__name__)
@@ -25,6 +23,11 @@ SMTP_PORT = 587
 EMAIL_ADDRESS = 'bucherincsd@gmail.com'
 EMAIL_PASSWORD = 'bthu ukag jwje epwq'
 RECIPIENT_EMAILS = ['san.diego@bucherinc.com', 'trafico@bucherinc.com', 'bucherincsd@gmail.com']
+
+# ----------------- FILENAME SANITIZER -----------------
+def clean_filename(text):
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8")
+    return re.sub(r'[^a-zA-Z0-9_\-\.]', '_', text)
 
 def correct_image_orientation(image):
     try:
@@ -50,7 +53,7 @@ class PDF(FPDF):
         if os.path.exists(logo_path):
             self.image(logo_path, x=10, y=8, w=66)
         else:
-            print("Logo file not found at", logo_path)
+            print("Logo not found at", logo_path)
         self.set_font("Arial", "B", 15)
         self.cell(80)
         self.cell(0, 10, "Damage Report", ln=True, align="C")
@@ -69,11 +72,11 @@ def send_email_with_attachment(pdf_data, pdf_name):
     
     body = "Good morning,\n\nAttached is the damage report.\n\nBest regards."
     msg.attach(MIMEText(body, 'plain'))
-    
+
     part = MIMEApplication(pdf_data, _subtype="pdf")
     part.add_header('Content-Disposition', 'attachment', filename=pdf_name)
     msg.attach(part)
-    
+
     server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
     server.starttls()
     server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
@@ -87,8 +90,9 @@ def upload_files():
     if 'pdf_name' not in request.form or not request.form['pdf_name'].strip():
         return jsonify({"error": "No PDF name provided"}), 400
 
-    pdf_name_raw = request.form['pdf_name'].strip()
-    pdf_name = pdf_name_raw + ".pdf"
+    raw_name = request.form['pdf_name'].strip()
+    pdf_name_clean = clean_filename(raw_name)
+    pdf_name = pdf_name_clean + ".pdf"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         pdf = PDF()
@@ -98,7 +102,7 @@ def upload_files():
         pdf.add_page()
         current_date = datetime.datetime.now().strftime("%m/%d/%Y")
         pdf.set_font("Arial", "", 12)
-        pdf.cell(0, 10, f"PO Number: {pdf_name_raw}", ln=True, align="C")
+        pdf.cell(0, 10, f"PO Number: {pdf_name_clean}", ln=True, align="C")
         pdf.cell(0, 10, f"Date: {current_date}", ln=True, align="C")
         pdf.ln(10)
 
@@ -111,17 +115,10 @@ def upload_files():
                 pdf.ln(3)
 
                 pdf.set_font("Arial", "", 12)
-                translations = {
-                    "Damages": "Damages",
-                    "Water damage": "Water damage",
-                    "Broken straps": "Broken straps",
-                    "Other": "Other"
-                }
                 for key, data in damage_data.items():
                     if data.get("checked") or data.get("quantity") or data.get("note"):
-                        translated_key = translations.get(key, key)
-                        line = f"- {translated_key}"
-                        if translated_key == "Other" and data.get("note"):
+                        line = f"- {key}"
+                        if data.get("note"):
                             line += f": {data['note']}"
                         if data.get("quantity"):
                             line += f" (Qty: {data['quantity']})"
@@ -130,7 +127,7 @@ def upload_files():
             except Exception as e:
                 return jsonify({"error": f"Failed to parse damage data: {str(e)}"}), 500
 
-        # Images Section
+        # Image Pages
         files = request.files.getlist("files")
         if not files:
             return jsonify({"error": "No valid images uploaded"}), 400
@@ -141,29 +138,17 @@ def upload_files():
             try:
                 with Image.open(image_path) as image:
                     image = correct_image_orientation(image)
-                    corrected_path = os.path.join(temp_dir, file.filename.replace(".jpg", "_fixed.jpg"))
-                    image.save(corrected_path)
+                    fixed_path = os.path.join(temp_dir, file.filename.replace(".jpg", "_fixed.jpg"))
+                    image.save(fixed_path)
                     pdf.add_page()
-                    pdf.image(corrected_path, x=10, y=10, w=180)
+                    pdf.image(fixed_path, x=10, y=10, w=180)
                 os.remove(image_path)
-                os.remove(corrected_path)
+                os.remove(fixed_path)
             except Exception as e:
                 return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
         # Generate PDF
         pdf_data = pdf.output(dest="S").encode('latin1')
-
-        # Save locally if running on your PC
-        if LOCAL_MODE:
-            try:
-                desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "received_images")
-                os.makedirs(desktop_path, exist_ok=True)
-                pdf_file_path = os.path.join(desktop_path, pdf_name)
-                with open(pdf_file_path, "wb") as f:
-                    f.write(pdf_data)
-                print(f"✅ PDF saved to: {pdf_file_path}")
-            except Exception as e:
-                print(f"❌ Failed to save PDF locally: {e}")
 
     # Send Email
     try:
@@ -175,3 +160,4 @@ def upload_files():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
