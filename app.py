@@ -26,7 +26,6 @@ EMAIL_ADDRESS = 'bucherincsd@gmail.com'
 EMAIL_PASSWORD = 'bthu ukag jwje epwq'
 RECIPIENT_EMAILS = ['san.diego@bucherinc.com', 'trafico@bucherinc.com', 'bucherincsd@gmail.com']
 
-
 def correct_image_orientation(image):
     try:
         for orientation in ExifTags.TAGS.keys():
@@ -54,21 +53,21 @@ class PDF(FPDF):
             print("Logo file not found at", logo_path)
         self.set_font("Arial", "B", 15)
         self.cell(80)
-        self.cell(0, 10, "Reporte de Daños", ln=True, align="C")
+        self.cell(0, 10, "Damage Report", ln=True, align="C")
         self.ln(10)
 
     def footer(self):
         self.set_y(-15)
         self.set_font("Arial", "I", 8)
-        self.cell(0, 10, f"Página {self.page_no()}", 0, 0, "C")
+        self.cell(0, 10, f"Page {self.page_no()}", 0, 0, "C")
 
 def send_email_with_attachment(pdf_data, pdf_name):
     msg = MIMEMultipart()
     msg['From'] = EMAIL_ADDRESS
     msg['To'] = ", ".join(RECIPIENT_EMAILS)
-    msg['Subject'] = f"Reporte de Daños - {pdf_name}"
+    msg['Subject'] = f"Damage Report - {pdf_name}"
     
-    body = "Buen día, adjunto el reporte de daños.\n\nSaludos cordiales."
+    body = "Good morning,\n\nAttached is the damage report.\n\nBest regards."
     msg.attach(MIMEText(body, 'plain'))
     
     part = MIMEApplication(pdf_data, _subtype="pdf")
@@ -97,10 +96,10 @@ def upload_files():
 
         # Cover Page
         pdf.add_page()
-        current_date = datetime.datetime.now().strftime("%d/%m/%Y")
+        current_date = datetime.datetime.now().strftime("%m/%d/%Y")
         pdf.set_font("Arial", "", 12)
         pdf.cell(0, 10, f"PO Number: {pdf_name_raw}", ln=True, align="C")
-        pdf.cell(0, 10, f"Fecha: {current_date}", ln=True, align="C")
+        pdf.cell(0, 10, f"Date: {current_date}", ln=True, align="C")
         pdf.ln(10)
 
         # Damage Section
@@ -108,24 +107,24 @@ def upload_files():
             try:
                 damage_data = json.loads(request.form['damage_data'])
                 pdf.set_font("Arial", "B", 14)
-                pdf.cell(0, 10, "Detalle de Daños:", ln=True)
+                pdf.cell(0, 10, "Damage Details:", ln=True)
                 pdf.ln(3)
 
                 pdf.set_font("Arial", "", 12)
                 translations = {
-                    "Damages": "Daños",
-                    "Water damage": "Daño por agua",
-                    "Broken straps": "Correas rotas",
-                    "Other": "Otro"
+                    "Damages": "Damages",
+                    "Water damage": "Water damage",
+                    "Broken straps": "Broken straps",
+                    "Other": "Other"
                 }
                 for key, data in damage_data.items():
                     if data.get("checked") or data.get("quantity") or data.get("note"):
                         translated_key = translations.get(key, key)
                         line = f"- {translated_key}"
-                        if translated_key == "Otro" and data.get("note"):
+                        if translated_key == "Other" and data.get("note"):
                             line += f": {data['note']}"
                         if data.get("quantity"):
-                            line += f" (Cantidad: {data['quantity']})"
+                            line += f" (Qty: {data['quantity']})"
                         pdf.multi_cell(0, 10, line)
                 pdf.ln(5)
             except Exception as e:
