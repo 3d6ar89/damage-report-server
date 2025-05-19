@@ -70,7 +70,7 @@ def send_email_with_attachment(pdf_data, pdf_name):
     msg['To'] = ", ".join(RECIPIENT_EMAILS)
     msg['Subject'] = f"Damage Report - {pdf_name}"
     
-    body = "Good morning,\n\nAttached is the damage report.\n\nBest regards."
+    body = "Hola a todos,\n\nAdjunto está el informe de daños más reciente para su revisión.\n\nSaludos cordiales,"
     msg.attach(MIMEText(body, 'plain'))
 
     part = MIMEApplication(pdf_data, _subtype="pdf")
