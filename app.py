@@ -22,7 +22,7 @@ SMTP_SERVER = 'smtp.gmail.com'
 SMTP_PORT = 587
 EMAIL_ADDRESS = 'bucherincsd@gmail.com'
 EMAIL_PASSWORD = 'bthu ukag jwje epwq'
-RECIPIENT_EMAILS = ['san.diego@bucherinc.com', 'trafico@bucherinc.com', 'bucherincsd@gmail.com', 'inventrarios@bucherinc.com', 'almacen.g@bucherinc.com']
+RECIPIENT_EMAILS = ['san.diego@bucherinc.com', 'trafico@bucherinc.com', 'bucherincsd@gmail.com', 'inventarios@bucherinc.com', 'almacen.g@bucherinc.com']
 
 # ----------------- FILENAME SANITIZER -----------------
 def clean_filename(text):
